@@ -1,0 +1,12 @@
+				contains(s,a)	p(a)	(a == bound)	result
+				
+forall			true			true	-				continue
+				true			false	-				false
+				false			-		true			true
+				false			-		false			continue
+
+
+exists			true			true	-				true
+				true			false	-				continue
+				false			-		true			false
+				false			-		false			continue
