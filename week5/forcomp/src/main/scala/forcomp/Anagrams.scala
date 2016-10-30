@@ -34,10 +34,12 @@ object Anagrams {
    *
    *  Note: you must use `groupBy` to implement this method!
    */
-  def wordOccurrences(w: Word): Occurrences = ???
+  def wordOccurrences(w: Word): Occurrences =
+    (w.toLowerCase groupBy ((c: Char) => c) map {case (k, v) => (k, v.size)}).toList.sorted
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = ???
+  def sentenceOccurrences(s: Sentence): Occurrences = 
+    wordOccurrences(s.mkString)
 
   /** The `dictionaryByOccurrences` is a `Map` from different occurrences to a sequence of all
    *  the words that have that occurrence count.
@@ -54,10 +56,14 @@ object Anagrams {
    *    List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
    *
    */
-  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = ???
+  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = 
+    (
+      dictionary map (word => (wordOccurrences(word), word)) groupBy (_._1)
+    ) map { case(k, v) => (k, v map (_._2)) } withDefaultValue Nil
 
   /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] = ???
+  def wordAnagrams(word: Word): List[Word] =
+    dictionaryByOccurrences(wordOccurrences(word))
 
   /** Returns the list of all subsets of the occurrence list.
    *  This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
@@ -70,18 +76,23 @@ object Anagrams {
    *      List(),
    *      List(('a', 1)),
    *      List(('a', 2)),
-   *      List(('b', 1)),
    *      List(('a', 1), ('b', 1)),
    *      List(('a', 2), ('b', 1)),
+   *      List(('b', 1)),
    *      List(('b', 2)),
    *      List(('a', 1), ('b', 2)),
    *      List(('a', 2), ('b', 2))
    *    )
-   *
+   * 
    *  Note that the order of the occurrence list subsets does not matter -- the subsets
    *  in the example above could have been displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations(occurrences: Occurrences): List[Occurrences] = {
+    occurrences.foldLeft(List[Occurrences](Nil)) { 
+      case (acc, (char, times)) =>
+        acc ++ (for (comb <- acc; t <- 1 to times) yield comb :+ (char, t))
+    }
+  }
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
    *
@@ -93,7 +104,14 @@ object Anagrams {
    *  Note: the resulting value is an occurrence - meaning it is sorted
    *  and has no zero-entries.
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
+  def subtract(x: Occurrences, y: Occurrences): Occurrences = {
+    def update(e: (Char, Int), a: List[(Char, Int)]): List[(Char, Int)] = {
+      val listAsMap = a.toMap
+      (if (listAsMap(e._1) == e._2) (listAsMap - e._1)
+      else listAsMap.updated(e._1, listAsMap(e._1) - e._2)).toList
+    }
+    y.foldLeft(x){ case (acc, elem) => update(elem, acc) }.sorted
+  }
 
   /** Returns a list of all anagram sentences of the given sentence.
    *
@@ -113,15 +131,15 @@ object Anagrams {
    *    List(
    *      List(en, as, my),
    *      List(en, my, as),
-   *      List(man, yes),
-   *      List(men, say),
    *      List(as, en, my),
    *      List(as, my, en),
-   *      List(sane, my),
-   *      List(Sean, my),
    *      List(my, en, as),
    *      List(my, as, en),
+   *      List(man, yes),
+   *      List(men, say),
+   *      List(sane, my),
    *      List(my, sane),
+   *      List(Sean, my),
    *      List(my, Sean),
    *      List(say, men),
    *      List(yes, man)
@@ -135,5 +153,16 @@ object Anagrams {
    *
    *  Note: There is only one anagram of an empty sentence.
    */
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
+    def rec(occurrences: Occurrences): List[Sentence] = {
+      if (occurrences.isEmpty) List(Nil)
+      else for {
+        comb <- combinations(occurrences)
+        word <- dictionaryByOccurrences(comb)
+        sentence <- rec(subtract(occurrences, wordOccurrences(word)))
+        if !comb.isEmpty
+      } yield word :: sentence
+    }
+    rec(sentenceOccurrences(sentence))
+  }
 }
